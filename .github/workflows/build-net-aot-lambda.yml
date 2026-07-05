@@ -1,0 +1,57 @@
+name: Build .NET Native AOT Lambda
+
+on:
+  workflow_call:
+    inputs:
+      lambda-specs:
+        description: "Newline-delimited lambda specs in the format group|project_dir|zip_name|project_file"
+        required: true
+        type: string
+      target:
+        description: "Build target group from lambda specs or 'all'"
+        required: false
+        default: all
+        type: string
+      runtime:
+        description: ".NET RID runtime"
+        required: false
+        default: linux-arm64
+        type: string
+      configuration:
+        description: "dotnet build configuration"
+        required: false
+        default: Release
+        type: string
+      image:
+        description: "Docker image with .NET Native AOT toolchain"
+        required: false
+        default: public.ecr.aws/sam/build-dotnet10:latest-arm64
+        type: string
+      platform:
+        description: "Docker platform"
+        required: false
+        default: linux/arm64
+        type: string
+      dry-run:
+        description: "Set to true to print planned build commands only"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Native AOT Lambda packages
+        uses: ./.github/actions/build-net-aot-lambda
+        with:
+          lambda-specs: ${{ inputs.lambda-specs }}
+          target: ${{ inputs.target }}
+          runtime: ${{ inputs.runtime }}
+          configuration: ${{ inputs.configuration }}
+          image: ${{ inputs.image }}
+          platform: ${{ inputs.platform }}
+          dry-run: ${{ inputs.dry-run }}

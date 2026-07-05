@@ -63,15 +63,15 @@ Options:
       Show this help.
 
 Examples:
-  ./build-lambdas.sh \
+  ./build-net-aot-lambda-function.sh \
     --lambda "api|src/Foo.Create|FooCreate.zip|Foo.Create.csproj" \
     --lambda "api|src/Foo.Get|FooGet.zip|Foo.Get.csproj"
 
-  ./build-lambdas.sh \
+  ./build-net-aot-lambda-function.sh \
     --target auth \
     --lambda "auth|services/authz|Authorizer.zip|Authz.csproj"
 
-  ./build-lambdas.sh \
+  ./build-net-aot-lambda-function.sh \
     --repo-root /path/to/repo \
     --lambda "billing|lambdas/invoice|Invoice.zip|Invoice.csproj"
 EOF

@@ -1,0 +1,72 @@
+name: Update Major Tag
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  update-major-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Derive major tag from release tag
+        id: derive
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          full_tag="${GITHUB_REF_NAME}"
+          if [[ ! "$full_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Tag '$full_tag' is not a strict semantic version (vN.N.N). Skipping."
+            echo "should_update=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          major_tag="v${BASH_REMATCH[1]}"
+          echo "full_tag=$full_tag" >> "$GITHUB_OUTPUT"
+          echo "major_tag=$major_tag" >> "$GITHUB_OUTPUT"
+          echo "should_update=true" >> "$GITHUB_OUTPUT"
+
+      - name: Move major tag to release commit
+        if: steps.derive.outputs.should_update == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const majorTag = '${{ steps.derive.outputs.major_tag }}';
+            const fullTag = '${{ steps.derive.outputs.full_tag }}';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const fullRef = await github.rest.git.getRef({
+              owner,
+              repo,
+              ref: `tags/${fullTag}`,
+            });
+
+            const targetSha = fullRef.data.object.sha;
+
+            try {
+              await github.rest.git.updateRef({
+                owner,
+                repo,
+                ref: `tags/${majorTag}`,
+                sha: targetSha,
+                force: true,
+              });
+              core.info(`Updated ${majorTag} -> ${targetSha}`);
+            } catch (error) {
+              if (error.status === 404) {
+                await github.rest.git.createRef({
+                  owner,
+                  repo,
+                  ref: `refs/tags/${majorTag}`,
+                  sha: targetSha,
+                });
+                core.info(`Created ${majorTag} -> ${targetSha}`);
+              } else {
+                throw error;
+              }
+            }

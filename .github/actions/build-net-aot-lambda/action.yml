@@ -1,0 +1,76 @@
+name: Build .NET Native AOT Lambda Function
+description: Builds one or more .NET Native AOT Lambda zip packages using scripts/build-net-aot-lambda-function.sh
+
+inputs:
+  lambda-specs:
+    description: "Newline-delimited lambda specs in the format group|project_dir|zip_name|project_file"
+    required: true
+  target:
+    description: "Build target group from lambda specs or 'all'"
+    required: false
+    default: all
+  repo-root:
+    description: "Repository root mounted into Docker"
+    required: false
+    default: .
+  runtime:
+    description: ".NET RID runtime"
+    required: false
+    default: linux-arm64
+  configuration:
+    description: "dotnet build configuration"
+    required: false
+    default: Release
+  image:
+    description: "Docker image with .NET Native AOT toolchain"
+    required: false
+    default: public.ecr.aws/sam/build-dotnet10:latest-arm64
+  platform:
+    description: "Docker platform"
+    required: false
+    default: linux/arm64
+  dry-run:
+    description: "Set to true to print planned build commands only"
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Build Lambda package(s)
+      shell: bash
+      env:
+        INPUT_LAMBDA_SPECS: ${{ inputs.lambda-specs }}
+      run: |
+        set -euo pipefail
+
+        SCRIPT_PATH="${{ github.action_path }}/../../../scripts/build-net-aot-lambda-function.sh"
+        if [[ ! -f "$SCRIPT_PATH" ]]; then
+          echo "error: build script not found at $SCRIPT_PATH" >&2
+          exit 1
+        fi
+
+        args=(
+          --target "${{ inputs.target }}"
+          --repo-root "${{ inputs.repo-root }}"
+          --runtime "${{ inputs.runtime }}"
+          --configuration "${{ inputs.configuration }}"
+          --image "${{ inputs.image }}"
+          --platform "${{ inputs.platform }}"
+        )
+
+        if [[ "${{ inputs.dry-run }}" == "true" ]]; then
+          args+=(--dry-run)
+        fi
+
+        while IFS= read -r spec; do
+          [[ -n "$spec" ]] || continue
+          args+=(--lambda "$spec")
+        done <<< "$INPUT_LAMBDA_SPECS"
+
+        if [[ "${#args[@]}" -eq 0 ]]; then
+          echo "error: no arguments were created for the build script" >&2
+          exit 1
+        fi
+
+        bash "$SCRIPT_PATH" "${args[@]}"
